@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Terrain">
+<meta name="theme-color" content="#0f0f0f">
+<title>Terrain</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #252525;
+    --border: #2e2e2e;
+    --text: #f0ede8;
+    --text2: #8a8680;
+    --accent: #c8a96e;
+    --accent2: #a08050;
+    --red: #e05555;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    height: 100dvh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex-direction: column; height: 100dvh; }
+  .screen.active { display: flex; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--safe-top) + 14px) 20px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    min-height: calc(var(--safe-top) + 52px);
+  }
+  .topbar-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .topbar-sub { font-size: 13px; color: var(--text2); margin-top: 1px; }
+  .topbar-btn {
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; font-weight: 500; cursor: pointer; padding: 6px 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .topbar-btn svg { width: 18px; height: 18px; }
+  .topbar-btn.icon-only { padding: 6px; }
+
+  /* ── LIST ── */
+  .scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  
+  .section-header {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.8px;
+    color: var(--text2); text-transform: uppercase;
+    padding: 20px 20px 8px;
+  }
+
+  .folder-item, .sheet-item {
+    display: flex; align-items: center;
+    padding: 14px 20px; gap: 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.1s;
+    position: relative;
+  }
+  .folder-item:active, .sheet-item:active { background: var(--bg2); }
+
+  .folder-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--bg3); display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 18px;
+  }
+  .folder-info { flex: 1; min-width: 0; }
+  .folder-name { font-size: 16px; font-weight: 500; }
+  .folder-meta { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .folder-chevron { color: var(--text2); font-size: 13px; }
+
+  .sheet-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0; margin: 0 5px;
+  }
+  .sheet-info { flex: 1; min-width: 0; }
+  .sheet-title { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet-preview { font-size: 13px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet-date { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; right: 22px;
+    bottom: calc(var(--safe-bottom) + 22px);
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--accent); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(200,169,110,0.4);
+    transition: transform 0.15s, box-shadow 0.15s; z-index: 10;
+  }
+  .fab:active { transform: scale(0.93); box-shadow: 0 2px 10px rgba(200,169,110,0.3); }
+  .fab svg { color: #0f0f0f; }
+
+  /* ── NOTE EDITOR ── */
+  #screen-editor { position: relative; }
+
+  .editor-topbar {
+    display: flex; align-items: center;
+    padding: calc(var(--safe-top) + 12px) 16px 12px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    flex-shrink: 0; gap: 10px;
+  }
+  .editor-back {
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; gap: 4px; padding: 4px 0; flex-shrink: 0;
+  }
+  .editor-title-input {
+    flex: 1; background: none; border: none; color: var(--text);
+    font-size: 17px; font-weight: 600; outline: none;
+    font-family: inherit; text-align: center;
+  }
+  .editor-title-input::placeholder { color: var(--text2); }
+  .editor-save {
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; font-weight: 600; cursor: pointer; padding: 4px 0; flex-shrink: 0;
+  }
+
+  .editor-meta {
+    padding: 10px 18px; font-size: 12px; color: var(--text2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+
+  .content-area {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 12px 0; scroll-behavior: smooth;
+  }
+
+  /* blocks */
+  .block {
+    padding: 6px 18px; position: relative;
+  }
+  .block-text {
+    font-size: 16px; line-height: 1.6; color: var(--text);
+    white-space: pre-wrap; word-break: break-word;
+    min-height: 24px;
+  }
+  .block-text.empty::before { content: attr(data-placeholder); color: var(--text2); }
+  .block-text:focus { outline: none; }
+
+  .block-media {
+    position: relative; border-radius: 10px; overflow: hidden;
+    background: var(--bg3); margin: 4px 18px;
+  }
+  .block-media img, .block-media canvas { width: 100%; display: block; border-radius: 10px; }
+  .block-media-label {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,0.6); color: var(--text); font-size: 11px;
+    padding: 3px 8px; border-radius: 20px; backdrop-filter: blur(4px);
+  }
+  .block-delete {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.6); border: none; color: var(--red);
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); font-size: 14px;
+  }
+
+  .block-audio {
+    background: var(--bg3); border-radius: 10px;
+    margin: 4px 18px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .audio-play {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: transform 0.1s;
+  }
+  .audio-play:active { transform: scale(0.9); }
+  .audio-info { flex: 1; min-width: 0; }
+  .audio-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .audio-dur { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .audio-waveform {
+    height: 24px; display: flex; align-items: center; gap: 2px;
+    margin-top: 6px;
+  }
+  .audio-bar {
+    width: 2px; border-radius: 2px; background: var(--accent2);
+    transition: background 0.2s;
+  }
+  .audio-bar.played { background: var(--accent); }
+
+  /* ── TOOLBAR ── */
+  .editor-toolbar {
+    display: flex; align-items: center;
+    padding: 8px 16px; padding-bottom: calc(8px + var(--safe-bottom));
+    background: var(--bg2); border-top: 1px solid var(--border);
+    gap: 8px; flex-shrink: 0;
+  }
+  .editor-textarea {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text); font-size: 15px;
+    padding: 8px 14px; outline: none; font-family: inherit;
+    line-height: 1.4; resize: none; max-height: 100px; min-height: 36px;
+    overflow-y: auto;
+  }
+  .editor-textarea::placeholder { color: var(--text2); }
+  
+  .tool-btn {
+    background: var(--bg3); border: 1px solid var(--border);
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s, transform 0.1s; flex-shrink: 0;
+    color: var(--text2);
+  }
+  .tool-btn:active { transform: scale(0.9); background: var(--border); }
+  .tool-btn.recording { background: var(--red); border-color: var(--red); color: white; animation: pulse 1s infinite; }
+  .send-btn {
+    background: var(--accent); border: none;
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: transform 0.1s;
+  }
+  .send-btn:active { transform: scale(0.9); }
+  .send-btn:disabled { opacity: 0.4; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224,85,85,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(224,85,85,0); }
+  }
+
+  /* ── DRAWING MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.85); flex-direction: column;
+    align-items: center; justify-content: flex-end;
+  }
+  .modal-overlay.open { display: flex; }
+  .draw-sheet {
+    width: 100%; background: var(--bg2);
+    border-radius: 20px 20px 0 0;
+    display: flex; flex-direction: column;
+    max-height: 85dvh;
+  }
+  .draw-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .draw-title { font-size: 15px; font-weight: 600; }
+  .draw-header-btn {
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; font-weight: 500; cursor: pointer;
+  }
+  .draw-tools {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; overflow-x: auto;
+  }
+  .color-dot {
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform 0.1s;
+    flex-shrink: 0;
+  }
+  .color-dot.active { border-color: white; transform: scale(1.15); }
+  .size-btn {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 4px 10px;
+    font-size: 13px; cursor: pointer; flex-shrink: 0;
+  }
+  .size-btn.active { background: var(--accent); border-color: var(--accent); color: #0f0f0f; font-weight: 600; }
+  .draw-canvas-wrap { flex: 1; overflow: hidden; position: relative; }
+  #draw-canvas { display: block; touch-action: none; cursor: crosshair; width: 100%; }
+  .draw-erase-btn {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+    border-radius: 8px; padding: 4px 10px; font-size: 13px; cursor: pointer; flex-shrink: 0;
+  }
+  .draw-erase-btn.active { background: var(--red); border-color: var(--red); color: white; }
+
+  /* ── MODAL NEW FOLDER / SHEET ── */
+  .modal-sheet {
+    width: 100%; background: var(--bg2);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+  }
+  .modal-sheet h3 { font-size: 17px; font-weight: 600; margin-bottom: 16px; text-align: center; }
+  .modal-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-size: 16px;
+    padding: 12px 16px; outline: none; font-family: inherit; margin-bottom: 12px;
+  }
+  .modal-input:focus { border-color: var(--accent); }
+  .modal-btn {
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 8px;
+  }
+  .modal-btn.primary { background: var(--accent); color: #0f0f0f; }
+  .modal-btn.cancel { background: var(--bg3); color: var(--text2); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 12px; padding: 40px;
+    text-align: center;
+  }
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-text { font-size: 15px; color: var(--text2); line-height: 1.5; }
+
+  /* ── SWIPE DELETE ── */
+  .swipe-wrapper { position: relative; overflow: hidden; }
+  .swipe-delete-bg {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    background: var(--red); display: flex; align-items: center;
+    padding: 0 20px; font-size: 13px; color: white; font-weight: 500;
+    pointer-events: none;
+  }
+  .swipe-inner { transition: transform 0.2s; background: var(--bg); }
+
+  /* ── RECORDING INDICATOR ── */
+  .rec-indicator {
+    display: none; position: fixed; top: calc(var(--safe-top) + 8px); left: 50%;
+    transform: translateX(-50%); background: var(--red);
+    color: white; font-size: 12px; font-weight: 600;
+    padding: 4px 14px; border-radius: 20px; z-index: 200;
+    align-items: center; gap: 6px;
+  }
+  .rec-indicator.visible { display: flex; }
+  .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: white; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* camera input hidden */
+  #camera-input, #gallery-input { display: none; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 0; }
+</style>
+</head>
+<body>
+
+<!-- Recording indicator -->
+<div class="rec-indicator" id="rec-indicator">
+  <div class="rec-dot"></div>
+  <span id="rec-time">0:00</span>
+</div>
+
+<!-- Hidden inputs -->
+<input type="file" id="camera-input" accept="image/*" capture="environment">
+<input type="file" id="gallery-input" accept="image/*">
+
+<!-- ══ SCREEN: FOLDERS ══ -->
+<div class="screen active" id="screen-folders">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Terrain</div>
+      <div class="topbar-sub" id="folders-meta">Chargement…</div>
+    </div>
+    <button class="topbar-btn" onclick="openNewFolderModal()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Dossier
+    </button>
+  </div>
+  <div class="scroll-area" id="folders-list"></div>
+</div>
+
+<!-- ══ SCREEN: SHEETS ══ -->
+<div class="screen" id="screen-sheets">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goBack('folders')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg>
+      Retour
+    </button>
+    <div style="text-align:center">
+      <div class="topbar-title" id="sheets-folder-name"></div>
+      <div class="topbar-sub" id="sheets-meta"></div>
+    </div>
+    <button class="topbar-btn" onclick="openNewSheetModal()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Terrain
+    </button>
+  </div>
+  <div class="scroll-area" id="sheets-list"></div>
+</div>
+
+<!-- ══ SCREEN: EDITOR ══ -->
+<div class="screen" id="screen-editor">
+  <div class="editor-topbar">
+    <button class="editor-back" onclick="goBack('sheets')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg>
+      Retour
+    </button>
+    <input class="editor-title-input" id="editor-title" placeholder="Nom du terrain" autocomplete="off" spellcheck="false">
+    <button class="editor-save" onclick="saveCurrentSheet()">OK</button>
+  </div>
+  <div class="editor-meta" id="editor-meta"></div>
+  <div class="content-area" id="content-area"></div>
+  <div class="editor-toolbar">
+    <button class="tool-btn" id="mic-btn" onclick="toggleRecording()" title="Enregistrer">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8"/>
+      </svg>
+    </button>
+    <button class="tool-btn" onclick="triggerCamera()" title="Photo">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+    </button>
+    <button class="tool-btn" onclick="openDrawModal()" title="Dessiner">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+        <path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+      </svg>
+    </button>
+    <textarea class="editor-textarea" id="editor-input" placeholder="Écrire une note…" rows="1"
+      oninput="autoResize(this)"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendText()" disabled>
+      <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══ DRAW MODAL ══ -->
+<div class="modal-overlay" id="draw-modal">
+  <div class="draw-sheet">
+    <div class="draw-header">
+      <button class="draw-header-btn" onclick="closeDrawModal()">Annuler</button>
+      <span class="draw-title">Schéma</span>
+      <button class="draw-header-btn" onclick="confirmDraw()" style="color:var(--accent);font-weight:600">Insérer</button>
+    </div>
+    <div class="draw-tools">
+      <div class="color-dot active" style="background:#f0ede8" onclick="setColor('#f0ede8',this)"></div>
+      <div class="color-dot" style="background:#c8a96e" onclick="setColor('#c8a96e',this)"></div>
+      <div class="color-dot" style="background:#5b9bd5" onclick="setColor('#5b9bd5',this)"></div>
+      <div class="color-dot" style="background:#e05555" onclick="setColor('#e05555',this)"></div>
+      <div class="color-dot" style="background:#6bbf7e" onclick="setColor('#6bbf7e',this)"></div>
+      <div class="color-dot" style="background:#e8c84a" onclick="setColor('#e8c84a',this)"></div>
+      <div style="width:1px;height:24px;background:var(--border);flex-shrink:0"></div>
+      <button class="size-btn active" onclick="setSize(3,this)">S</button>
+      <button class="size-btn" onclick="setSize(6,this)">M</button>
+      <button class="size-btn" onclick="setSize(12,this)">L</button>
+      <div style="width:1px;height:24px;background:var(--border);flex-shrink:0"></div>
+      <button class="draw-erase-btn" id="erase-btn" onclick="toggleErase()">✕ Effacer</button>
+      <button class="draw-erase-btn" onclick="clearCanvas()" style="margin-left:auto">Tout effacer</button>
+    </div>
+    <div class="draw-canvas-wrap">
+      <canvas id="draw-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW FOLDER MODAL ══ -->
+<div class="modal-overlay" id="new-folder-modal">
+  <div class="modal-sheet">
+    <h3>Nouveau dossier</h3>
+    <input class="modal-input" id="folder-name-input" placeholder="Nom du dossier (ex: Élection 2026)" maxlength="60">
+    <input class="modal-input" id="folder-emoji-input" placeholder="Emoji (optionnel, ex: 🗳️)" maxlength="4">
+    <button class="modal-btn primary" onclick="createFolder()">Créer</button>
+    <button class="modal-btn cancel" onclick="closeModal('new-folder-modal')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ NEW SHEET MODAL ══ -->
+<div class="modal-overlay" id="new-sheet-modal">
+  <div class="modal-sheet">
+    <h3>Nouveau terrain</h3>
+    <input class="modal-input" id="sheet-name-input" placeholder="Nom du terrain" maxlength="80">
+    <button class="modal-btn primary" onclick="createSheet()">Créer</button>
+    <button class="modal-btn cancel" onclick="closeModal('new-sheet-modal')">Annuler</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DATA LAYER
+// ══════════════════════════════════════
+const DB_KEY = 'terrain_db_v2';
+
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || { folders: [] }; }
+  catch { return { folders: [] }; }
+}
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fmtDate(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return "À l'instant";
+  if (diff < 3600) return Math.floor(diff/60) + " min";
+  if (diff < 86400) return Math.floor(diff/3600) + "h";
+  return d.toLocaleDateString('fr-FR', {day:'numeric',month:'short'});
+}
+function fmtFull(ts) {
+  return new Date(ts).toLocaleDateString('fr-FR', {
+    weekday:'long', day:'numeric', month:'long', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
+
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+let currentFolderId = null;
+let currentSheetId = null;
+let db = loadDB();
+
+// ══════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function goBack(to) {
+  if (to === 'sheets') {
+    saveCurrentSheet();
+    renderSheets();
+    showScreen('sheets');
+  } else {
+    renderFolders();
+    showScreen('folders');
+  }
+}
+
+// ══════════════════════════════════════
+// FOLDERS
+// ══════════════════════════════════════
+function renderFolders() {
+  db = loadDB();
+  const list = document.getElementById('folders-list');
+  const meta = document.getElementById('folders-meta');
+  meta.textContent = db.folders.length + ' dossier' + (db.folders.length !== 1 ? 's' : '');
+
+  if (!db.folders.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📁</div>
+      <div class="empty-text">Aucun dossier.<br>Créez-en un pour commencer.</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = db.folders.map(f => {
+    const count = f.sheets ? f.sheets.length : 0;
+    const last = f.sheets && f.sheets.length ? fmtDate(Math.max(...f.sheets.map(s=>s.updatedAt||s.createdAt))) : '';
+    return `<div class="swipe-wrapper" id="fw-${f.id}">
+      <div class="swipe-delete-bg">Supprimer</div>
+      <div class="swipe-inner folder-item" onclick="openFolder('${f.id}')">
+        <div class="folder-icon">${f.emoji || '📂'}</div>
+        <div class="folder-info">
+          <div class="folder-name">${esc(f.name)}</div>
+          <div class="folder-meta">${count} terrain${count!==1?'s':''} ${last?'· '+last:''}</div>
+        </div>
+        <div class="folder-chevron">›</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  db.folders.forEach(f => setupSwipe('fw-' + f.id, () => deleteFolder(f.id)));
+}
+
+function openFolder(id) {
+  currentFolderId = id;
+  renderSheets();
+  showScreen('sheets');
+}
+
+function deleteFolder(id) {
+  db.folders = db.folders.filter(f => f.id !== id);
+  saveDB(db);
+  renderFolders();
+}
+
+function openNewFolderModal() {
+  document.getElementById('folder-name-input').value = '';
+  document.getElementById('folder-emoji-input').value = '';
+  document.getElementById('new-folder-modal').classList.add('open');
+  setTimeout(() => document.getElementById('folder-name-input').focus(), 100);
+}
+
+function createFolder() {
+  const name = document.getElementById('folder-name-input').value.trim();
+  if (!name) return;
+  const emoji = document.getElementById('folder-emoji-input').value.trim() || '📂';
+  db.folders.push({ id: genId(), name, emoji, sheets: [], createdAt: Date.now() });
+  saveDB(db);
+  closeModal('new-folder-modal');
+  renderFolders();
+}
+
+// ══════════════════════════════════════
+// SHEETS
+// ══════════════════════════════════════
+function getFolder() { return db.folders.find(f => f.id === currentFolderId); }
+
+function renderSheets() {
+  db = loadDB();
+  const folder = getFolder();
+  if (!folder) return;
+  document.getElementById('sheets-folder-name').textContent = folder.emoji + ' ' + folder.name;
+  const sheets = folder.sheets || [];
+  document.getElementById('sheets-meta').textContent = sheets.length + ' terrain' + (sheets.length!==1?'s':'');
+
+  const list = document.getElementById('sheets-list');
+  if (!sheets.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">Aucun terrain dans ce dossier.<br>Créez votre première fiche.</div>
+    </div>`;
+    return;
+  }
+
+  const sorted = [...sheets].sort((a,b) => (b.updatedAt||b.createdAt) - (a.updatedAt||a.createdAt));
+  list.innerHTML = sorted.map(s => {
+    const preview = getSheetPreview(s);
+    return `<div class="swipe-wrapper" id="sw-${s.id}">
+      <div class="swipe-delete-bg">Supprimer</div>
+      <div class="swipe-inner sheet-item" onclick="openSheet('${s.id}')">
+        <div class="sheet-dot"></div>
+        <div class="sheet-info">
+          <div class="sheet-title">${esc(s.title)}</div>
+          <div class="sheet-preview">${preview}</div>
+        </div>
+        <div class="sheet-date">${fmtDate(s.updatedAt||s.createdAt)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  sorted.forEach(s => setupSwipe('sw-' + s.id, () => deleteSheet(s.id)));
+}
+
+function getSheetPreview(sheet) {
+  if (!sheet.blocks || !sheet.blocks.length) return 'Fiche vide';
+  for (const b of sheet.blocks) {
+    if (b.type === 'text' && b.content && b.content.trim()) return esc(b.content.slice(0,60));
+    if (b.type === 'audio') return '🎙 Enregistrement vocal';
+    if (b.type === 'image') return '📷 Photo';
+    if (b.type === 'drawing') return '✏️ Schéma';
+  }
+  return 'Fiche vide';
+}
+
+function openSheet(id) {
+  currentSheetId = id;
+  const folder = getFolder();
+  const sheet = folder.sheets.find(s => s.id === id);
+  document.getElementById('editor-title').value = sheet.title;
+  document.getElementById('editor-meta').textContent = fmtFull(sheet.createdAt);
+  renderBlocks(sheet.blocks || []);
+  showScreen('editor');
+  document.getElementById('editor-input').focus();
+}
+
+function deleteSheet(id) {
+  const folder = getFolder();
+  folder.sheets = folder.sheets.filter(s => s.id !== id);
+  saveDB(db);
+  renderSheets();
+}
+
+function openNewSheetModal() {
+  const d = new Date();
+  const suggested = d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('sheet-name-input').value = suggested;
+  document.getElementById('new-sheet-modal').classList.add('open');
+  setTimeout(() => {
+    const inp = document.getElementById('sheet-name-input');
+    inp.focus(); inp.select();
+  }, 100);
+}
+
+function createSheet() {
+  const title = document.getElementById('sheet-name-input').value.trim();
+  if (!title) return;
+  const folder = getFolder();
+  const sheet = { id: genId(), title, blocks: [], createdAt: Date.now(), updatedAt: Date.now() };
+  folder.sheets.push(sheet);
+  saveDB(db);
+  closeModal('new-sheet-modal');
+  openSheet(sheet.id);
+}
+
+function saveCurrentSheet() {
+  const folder = getFolder();
+  if (!folder || !currentSheetId) return;
+  const sheet = folder.sheets.find(s => s.id === currentSheetId);
+  if (!sheet) return;
+  sheet.title = document.getElementById('editor-title').value.trim() || sheet.title;
+  sheet.updatedAt = Date.now();
+  saveDB(db);
+}
+
+// ══════════════════════════════════════
+// BLOCKS
+// ══════════════════════════════════════
+function getSheet() {
+  const folder = getFolder();
+  return folder ? folder.sheets.find(s => s.id === currentSheetId) : null;
+}
+
+function addBlock(block) {
+  const sheet = getSheet();
+  if (!sheet) return;
+  sheet.blocks.push(block);
+  sheet.updatedAt = Date.now();
+  saveDB(db);
+  renderBlocks(sheet.blocks);
+  setTimeout(() => {
+    const ca = document.getElementById('content-area');
+    ca.scrollTop = ca.scrollHeight;
+  }, 50);
+}
+
+function deleteBlock(blockId) {
+  const sheet = getSheet();
+  if (!sheet) return;
+  sheet.blocks = sheet.blocks.filter(b => b.id !== blockId);
+  sheet.updatedAt = Date.now();
+  saveDB(db);
+  renderBlocks(sheet.blocks);
+}
+
+function renderBlocks(blocks) {
+  const area = document.getElementById('content-area');
+  if (!blocks.length) {
+    area.innerHTML = `<div class="block"><div class="block-text empty" data-placeholder="Commencez à écrire…"></div></div>`;
+    return;
+  }
+  area.innerHTML = blocks.map(b => renderBlock(b)).join('');
+  // bind audio
+  blocks.filter(b=>b.type==='audio').forEach(b => bindAudio(b));
+}
+
+function renderBlock(b) {
+  const id = b.id;
+  if (b.type === 'text') {
+    return `<div class="block"><div class="block-text">${esc(b.content)}</div></div>`;
+  }
+  if (b.type === 'image') {
+    return `<div class="block-media">
+      <img src="${b.data}" alt="Photo">
+      <div class="block-media-label">📷 Photo</div>
+      <button class="block-delete" onclick="deleteBlock('${id}')">✕</button>
+    </div>`;
+  }
+  if (b.type === 'drawing') {
+    return `<div class="block-media">
+      <img src="${b.data}" alt="Schéma">
+      <div class="block-media-label">✏️ Schéma</div>
+      <button class="block-delete" onclick="deleteBlock('${id}')">✕</button>
+    </div>`;
+  }
+  if (b.type === 'audio') {
+    const bars = Array(20).fill(0).map((_,i) => {
+      const h = 4 + Math.random()*20;
+      return `<div class="audio-bar" style="height:${h}px" data-idx="${i}"></div>`;
+    }).join('');
+    return `<div class="block-audio" id="audio-${id}">
+      <button class="audio-play" onclick="playAudio('${id}')">
+        <svg id="play-icon-${id}" width="14" height="14" fill="#0f0f0f" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="audio-info">
+        <div class="audio-name">🎙 Enregistrement vocal</div>
+        <div class="audio-dur" id="dur-${id}">${b.duration ? fmtDur(b.duration) : ''}</div>
+        <div class="audio-waveform" id="wave-${id}">${bars}</div>
+      </div>
+      <button class="block-delete" onclick="deleteBlock('${id}')">✕</button>
+    </div>`;
+  }
+  return '';
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDur(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m + ':' + String(sec).padStart(2,'0');
+}
+
+// ══════════════════════════════════════
+// TEXT INPUT
+// ══════════════════════════════════════
+document.getElementById('editor-input').addEventListener('input', function() {
+  document.getElementById('send-btn').disabled = !this.value.trim();
+});
+document.getElementById('editor-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+});
+
+function sendText() {
+  const inp = document.getElementById('editor-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  addBlock({ id: genId(), type: 'text', content: text, ts: Date.now() });
+  inp.value = '';
+  inp.style.height = '';
+  document.getElementById('send-btn').disabled = true;
+}
+
+function autoResize(el) {
+  el.style.height = '';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ══════════════════════════════════════
+// AUDIO RECORDING
+// ══════════════════════════════════════
+let mediaRecorder = null;
+let audioChunks = [];
+let recStart = 0;
+let recTimer = null;
+
+async function toggleRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    recStart = Date.now();
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = finalizeAudio;
+    mediaRecorder.start();
+
+    document.getElementById('mic-btn').classList.add('recording');
+    document.getElementById('rec-indicator').classList.add('visible');
+    recTimer = setInterval(() => {
+      const s = Math.floor((Date.now()-recStart)/1000);
+      document.getElementById('rec-time').textContent = fmtDur(s);
+    }, 500);
+  } catch(e) {
+    alert('Microphone non autorisé. Vérifiez les permissions dans Réglages > Safari.');
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder) { mediaRecorder.stop(); mediaRecorder.stream.getTracks().forEach(t=>t.stop()); }
+  document.getElementById('mic-btn').classList.remove('recording');
+  document.getElementById('rec-indicator').classList.remove('visible');
+  clearInterval(recTimer);
+}
+
+function finalizeAudio() {
+  const blob = new Blob(audioChunks, { type: 'audio/webm' });
+  const duration = (Date.now() - recStart) / 1000;
+  const reader = new FileReader();
+  reader.onload = () => {
+    addBlock({ id: genId(), type: 'audio', data: reader.result, duration, ts: Date.now() });
+  };
+  reader.readAsDataURL(blob);
+}
+
+const audioPlayers = {};
+function bindAudio(b) { /* players are created on demand */ }
+
+function playAudio(id) {
+  const sheet = getSheet();
+  const block = sheet.blocks.find(b=>b.id===id);
+  if (!block) return;
+
+  if (audioPlayers[id]) {
+    const player = audioPlayers[id];
+    if (player.paused) {
+      player.play();
+      setPlayIcon(id, true);
+    } else {
+      player.pause();
+      setPlayIcon(id, false);
+    }
+    return;
+  }
+  const audio = new Audio(block.data);
+  audioPlayers[id] = audio;
+  audio.play();
+  setPlayIcon(id, true);
+
+  const wave = document.getElementById('wave-' + id);
+  const bars = wave ? wave.querySelectorAll('.audio-bar') : [];
+  audio.ontimeupdate = () => {
+    const pct = audio.duration ? audio.currentTime / audio.duration : 0;
+    bars.forEach((bar, i) => {
+      bar.classList.toggle('played', i / bars.length < pct);
+    });
+    const durEl = document.getElementById('dur-' + id);
+    if (durEl) durEl.textContent = fmtDur(audio.currentTime) + ' / ' + fmtDur(audio.duration||0);
+  };
+  audio.onended = () => { setPlayIcon(id, false); bars.forEach(b=>b.classList.remove('played')); };
+}
+
+function setPlayIcon(id, playing) {
+  const icon = document.getElementById('play-icon-' + id);
+  if (!icon) return;
+  icon.innerHTML = playing
+    ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+}
+
+// ══════════════════════════════════════
+// CAMERA / PHOTO
+// ══════════════════════════════════════
+function triggerCamera() {
+  // On iOS Safari, show choice between camera and gallery
+  const choice = confirm('Prendre une photo ?\n\nOK = Appareil photo\nAnnuler = Galerie');
+  if (choice) {
+    document.getElementById('camera-input').click();
+  } else {
+    document.getElementById('gallery-input').click();
+  }
+}
+
+function handleImageFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Compress image
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const max = 1200;
+      let w = img.width, h = img.height;
+      if (w > max) { h = h * max/w; w = max; }
+      if (h > max) { w = w * max/h; h = max; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      addBlock({ id: genId(), type: 'image', data: canvas.toDataURL('image/jpeg', 0.8), ts: Date.now() });
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('camera-input').addEventListener('change', function() { handleImageFile(this.files[0]); this.value=''; });
+document.getElementById('gallery-input').addEventListener('change', function() { handleImageFile(this.files[0]); this.value=''; });
+
+// ══════════════════════════════════════
+// DRAWING
+// ══════════════════════════════════════
+let drawColor = '#f0ede8';
+let drawSize = 3;
+let drawErasing = false;
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+
+function openDrawModal() {
+  const modal = document.getElementById('draw-modal');
+  modal.classList.add('open');
+  initCanvas();
+}
+
+function closeDrawModal() {
+  document.getElementById('draw-modal').classList.remove('open');
+}
+
+function initCanvas() {
+  const canvas = document.getElementById('draw-canvas');
+  const wrap = canvas.parentElement;
+  const h = Math.min(window.innerHeight * 0.5, 400);
+  canvas.width = wrap.clientWidth;
+  canvas.height = h;
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function clearCanvas() {
+  const canvas = document.getElementById('draw-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function setColor(c, el) {
+  drawColor = c; drawErasing = false;
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('erase-btn').classList.remove('active');
+}
+
+function setSize(s, el) {
+  drawSize = s;
+  document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function toggleErase() {
+  drawErasing = !drawErasing;
+  document.getElementById('erase-btn').classList.toggle('active', drawErasing);
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
+}
+
+function getPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return [(src.clientX - rect.left) * scaleX, (src.clientY - rect.top) * scaleY];
+}
+
+const canvas = document.getElementById('draw-canvas');
+canvas.addEventListener('mousedown', e => { isDrawing=true; [lastX,lastY]=getPos(e,canvas); });
+canvas.addEventListener('mousemove', e => { if(!isDrawing) return; draw(e); });
+canvas.addEventListener('mouseup', () => isDrawing=false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing=true; [lastX,lastY]=getPos(e,canvas); }, {passive:false});
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!isDrawing) return; draw(e); }, {passive:false});
+canvas.addEventListener('touchend', () => isDrawing=false);
+
+function draw(e) {
+  const ctx = canvas.getContext('2d');
+  const [x, y] = getPos(e, canvas);
+  ctx.beginPath();
+  ctx.moveTo(lastX, lastY);
+  ctx.lineTo(x, y);
+  ctx.strokeStyle = drawErasing ? '#1a1a1a' : drawColor;
+  ctx.lineWidth = drawErasing ? drawSize*4 : drawSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  [lastX, lastY] = [x, y];
+}
+
+function confirmDraw() {
+  const data = canvas.toDataURL('image/png');
+  addBlock({ id: genId(), type: 'drawing', data, ts: Date.now() });
+  closeDrawModal();
+  clearCanvas();
+}
+
+// ══════════════════════════════════════
+// SWIPE TO DELETE
+// ══════════════════════════════════════
+function setupSwipe(wrapperId, onDelete) {
+  const wrapper = document.getElementById(wrapperId);
+  if (!wrapper) return;
+  const inner = wrapper.querySelector('.swipe-inner');
+  let startX = 0, dx = 0, swiping = false;
+
+  inner.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX; dx = 0; swiping = true;
+  }, {passive:true});
+
+  inner.addEventListener('touchmove', e => {
+    if (!swiping) return;
+    dx = e.touches[0].clientX - startX;
+    if (dx > 0) dx = 0;
+    if (dx < -100) dx = -100;
+    inner.style.transform = `translateX(${dx}px)`;
+  }, {passive:true});
+
+  inner.addEventListener('touchend', () => {
+    swiping = false;
+    if (dx < -70) {
+      inner.style.transform = 'translateX(-80px)';
+      wrapper.querySelector('.swipe-delete-bg').style.pointerEvents = 'all';
+      wrapper.querySelector('.swipe-delete-bg').onclick = () => {
+        inner.style.transition = 'transform 0.2s, opacity 0.2s';
+        inner.style.transform = 'translateX(-100%)';
+        inner.style.opacity = '0';
+        setTimeout(onDelete, 200);
+      };
+    } else {
+      inner.style.transition = 'transform 0.2s';
+      inner.style.transform = '';
+      setTimeout(() => inner.style.transition='', 200);
+    }
+  });
+}
+
+// ══════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════
+function openNewFolderModal() {
+  document.getElementById('folder-name-input').value = '';
+  document.getElementById('folder-emoji-input').value = '';
+  document.getElementById('new-folder-modal').classList.add('open');
+  setTimeout(() => document.getElementById('folder-name-input').focus(), 300);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// enter key in modals
+document.getElementById('folder-name-input').addEventListener('keydown', e => { if(e.key==='Enter') createFolder(); });
+document.getElementById('sheet-name-input').addEventListener('keydown', e => { if(e.key==='Enter') createSheet(); });
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+renderFolders();
+</script>
+</body>
+</html>
