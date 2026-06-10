@@ -473,7 +473,7 @@
     </button>
   </div>
   <div class="scroll-area" id="folders-list"></div>
-  <div style="padding:16px;text-align:center;font-size:11px;color:var(--border)">v0.3</div>
+  <div style="padding:16px;text-align:center;font-size:11px;color:var(--border)">v0.4</div>
 
 <!-- ══ SCREEN: SHEETS ══ -->
 <div class="screen" id="screen-sheets">
@@ -1158,6 +1158,8 @@ async function handleImageFiles(files) {
     ts: Date.now()
   });
 }
+
+function processImageFile(file) {
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -1190,24 +1192,6 @@ async function handleImageFiles(files) {
     reader.readAsDataURL(file);
   });
 }
-
-async function handleImageFiles(files) {
-  if (!files || !files.length) return;
-  const processed = await Promise.all(Array.from(files).map(processImageFile));
-  addBlock({
-    id: genId(),
-    type: 'photo-series',
-    photos: processed.map(p => ({ full: p.full, thumb: p.thumb })),
-    ts: Date.now()
-  });
-}
-
-document.getElementById('camera-input').addEventListener('change', function() {
-  handleImageFiles(this.files); this.value='';
-});
-document.getElementById('gallery-input').addEventListener('change', function() {
-  handleImageFiles(this.files); this.value='';
-});
 
 // ── LIGHTBOX ──
 let lbBlockId = null;
