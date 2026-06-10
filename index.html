@@ -473,7 +473,7 @@
     </button>
   </div>
   <div class="scroll-area" id="folders-list"></div>
-  <div style="padding:16px;text-align:center;font-size:11px;color:var(--border)">v0.4</div>
+  <div style="padding:16px;text-align:center;font-size:11px;color:var(--border)">v0.5</div>
 
 <!-- ══ SCREEN: SHEETS ══ -->
 <div class="screen" id="screen-sheets">
@@ -601,13 +601,28 @@
 // DATA LAYER
 // ══════════════════════════════════════
 const DB_KEY = 'terrain_db_v2';
+let _memDB = null; // in-memory fallback when localStorage unavailable
+
+function isStorageAvailable() {
+  try { localStorage.setItem('_test', '1'); localStorage.removeItem('_test'); return true; }
+  catch { return false; }
+}
+const USE_STORAGE = isStorageAvailable();
 
 function loadDB() {
-  try { return JSON.parse(localStorage.getItem(DB_KEY)) || { folders: [] }; }
-  catch { return { folders: [] }; }
+  try {
+    if (USE_STORAGE) {
+      const raw = localStorage.getItem(DB_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && Array.isArray(parsed.folders) ? parsed : { folders: [] };
+    }
+    return _memDB || { folders: [] };
+  } catch { return _memDB || { folders: [] }; }
 }
 function saveDB(db) {
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  _memDB = db;
+  try { if (USE_STORAGE) localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+  catch(e) { console.warn('Storage unavailable', e); }
 }
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function fmtDate(ts) {
